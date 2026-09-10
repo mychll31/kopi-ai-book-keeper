@@ -62,10 +62,14 @@ const menus = [
 
 export default function Workspace(p: Props) {
   const [chosenSpace, setChosenSpace] = useState("");
+  const activeSpace = p.spaces.find((s) => s.active);
   const selectedSpace = p.spaces.some((s) => s.id === chosenSpace)
     ? chosenSpace
-    : p.spaces.find((s) => s.active)?.id || p.spaces[0]?.id || "";
+    : activeSpace?.id || p.spaces[0]?.id || "";
   const scopedEntries = p.entries.filter((e) => e.space_id === selectedSpace);
+  const activeEntries = activeSpace
+    ? p.entries.filter((e) => e.space_id === activeSpace.id)
+    : [];
   const [view, setView] = useState("Overview"),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
@@ -110,7 +114,7 @@ export default function Workspace(p: Props) {
       viewport?.removeEventListener("scroll", update);
     };
   }, []);
-  const summary = totals(scopedEntries);
+  const summary = totals(activeEntries);
   const rows = scopedEntries.filter(
     (e) =>
       (filter === "all" || e.type === filter) &&
@@ -132,7 +136,7 @@ export default function Workspace(p: Props) {
     return {
       label: d.toLocaleDateString("en-US", { month: "short" }),
       key,
-      ...totals(scopedEntries.filter((e) => e.date.startsWith(key))),
+      ...totals(activeEntries.filter((e) => e.date.startsWith(key))),
     };
   });
   const max = Math.max(100, ...chart.flatMap((c) => [c.credit, c.debit]));
@@ -210,7 +214,7 @@ export default function Workspace(p: Props) {
         </button>
       </header>
       <main className="w-main">
-        {(view === "Overview" || view === "Transactions") && (
+        {view === "Transactions" && (
           <BudgetSpaces
             spaces={p.spaces}
             selected={selectedSpace}
@@ -246,18 +250,22 @@ export default function Workspace(p: Props) {
                 <Wallet size={18} /> Available balance
               </span>
               <strong>{money(summary.balance)}</strong>
-              <small>All-time credit minus debit</small>
+              <small>
+                {activeSpace
+                  ? `${activeSpace.name} · active Budget Space · all time`
+                  : "No active Budget Space"}
+              </small>
             </section>
             <div className="w-totals">
               <div>
                 <span>
-                  <ArrowDownLeft size={16} /> Total credit
+                  <ArrowDownLeft size={16} /> Active total credit
                 </span>
                 <strong>{money(summary.credit)}</strong>
               </div>
               <div>
                 <span>
-                  <ArrowUpRight size={16} /> Total debit
+                  <ArrowUpRight size={16} /> Active total debit
                 </span>
                 <strong>{money(summary.debit)}</strong>
               </div>
