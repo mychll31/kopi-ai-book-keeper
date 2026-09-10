@@ -1,6 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "buildCommand": "npm run build",
-  "headers": [{"source":"/downloads/:path*","headers":[{"key":"Content-Disposition","value":"attachment"},{"key":"Content-Type","value":"application/vnd.android.package-archive"}]}]
-}
