@@ -1,0 +1,79 @@
+.w-optional {
+  border-top: 1px solid #e6ecdf;
+  border-bottom: 1px solid #e6ecdf;
+  padding: 14px 0;
+}
+.w-optional summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: #7c906c;
+}
+.w-optional[open] summary {
+  margin-bottom: 18px;
+}
+.w-optional > label {
+  margin-top: 16px;
+}
+.w-optional .optional {
+  margin-left: 5px;
+}
+
+/* Native Safari date controls must not determine the grid's track width. */
+.transaction-dialog .form-row {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.transaction-dialog form label {
+  min-width: 0;
+}
+.transaction-dialog input[type="date"] {
+  display: block;
+  appearance: none;
+  -webkit-appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  text-align: left;
+}
+.transaction-dialog input[type="date"]::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.25em;
+}
+
+@media (max-width: 480px) {
+  .transaction-dialog {
+    max-height: calc(100dvh - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  .transaction-dialog .dialog-content {
+    padding: 24px 20px;
+  }
+  .transaction-dialog .eyebrow {
+    padding-right: 36px;
+  }
+  .transaction-dialog .dialog-content > p {
+    margin-bottom: 16px;
+  }
+  .transaction-dialog .form-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+  .transaction-dialog input:not([type="checkbox"]):not([type="file"]),
+  .transaction-dialog select {
+    min-height: 46px;
+    font-size: 16px;
+  }
+  .transaction-dialog .type-switch button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 8px 4px;
+    gap: 5px;
+  }
+  .transaction-dialog .form-actions {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .transaction-dialog .form-actions button {
+    min-height: 44px;
+  }
+}

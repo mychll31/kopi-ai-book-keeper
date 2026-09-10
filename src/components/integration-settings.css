@@ -1,0 +1,56 @@
+.integration-settings {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #dce3d9;
+}
+.integration-settings h2 {
+  font-size: 20px;
+  margin-bottom: 10px;
+}
+.integration-settings p {
+  line-height: 1.6;
+  margin: 10px 0;
+  font-size: 14px;
+}
+.integration-section {
+  padding: 24px 0;
+  border-bottom: 1px solid #dce3d9;
+}
+.integration-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 17px;
+}
+.integration-section a {
+  color: #365d49;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.integration-section a svg {
+  display: inline;
+}
+.integration-section input {
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+.integration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.integration-section form {
+  margin: 16px 0;
+}
+.integration-section label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+.integration-status {
+  color: #365d49;
+}

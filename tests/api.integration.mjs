@@ -1,0 +1,66 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+
+const temporary = await mkdtemp(join(tmpdir(), 'pocketbook-test-'));
+const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3107'],{env:{...process.env,VERCEL:'',TURSO_DATABASE_URL:'file:'+join(temporary,'test.db'),TURSO_AUTH_TOKEN:'',DATABASE_AUTH_TOKEN:''},stdio:'pipe'});
+let output='';server.stderr.on('data',d=>output+=d);server.stdout.on('data',d=>output+=d);
+const base='http://localhost:3107';
+const request=(path,options={},cookie='')=>fetch(base+path,{...options,headers:{...options.headers,...(cookie?{cookie}:{})}});
+const entry=(overrides={})=>{const form=new FormData();for(const [key,value] of Object.entries({date:'2026-09-10',particular:'Received from HRazon',subscription:'',type:'credit',amount:'18000.00',...overrides}))form.set(key,value);return form;};
+async function signup(email){const r=await request('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'signup',name:'Test User',email,password:'test-only-password-394!'})});assert.equal(r.status,200,await r.clone().text());assert.match(r.headers.get('set-cookie'),/HttpOnly/i);return r.headers.get('set-cookie').split(';')[0];}
+try {
+  let ready=false;
+  for(let i=0;i<60;i++){try{if((await request('/api/auth')).ok){ready=true;break;}}catch{}await delay(250);}
+  assert.ok(ready,output);
+  assert.equal((await request('/')).status,200);
+  assert.equal((await request('/manifest.webmanifest')).status,200);
+  const icon=await request('/icon/192');assert.equal(icon.status,200);assert.equal(icon.headers.get('content-type'),'image/png');
+  assert.equal((await request('/api/entries')).status,401);
+  const a=await signup('a@example.test');const b=await signup('b@example.test');
+  assert.equal((await request('/api/transaction-types')).status,401);
+  const customType={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Rent'})};
+  assert.equal((await request('/api/transaction-types',customType,a)).status,200);
+  assert.deepEqual((await (await request('/api/transaction-types',{},a)).json()).types,['Rent']);
+  assert.deepEqual((await (await request('/api/transaction-types',{},b)).json()).types,[]);
+  assert.equal((await request('/api/transaction-types',{...customType,body:JSON.stringify({name:'Rent',icon:'home'})},a)).status,200);
+  assert.equal((await (await request('/api/transaction-types',{},a)).json()).icons.rent,'home');
+  assert.deepEqual((await (await request('/api/transaction-types',{},b)).json()).icons,{});
+  assert.equal((await request('/api/transaction-types',{...customType,body:JSON.stringify({name:'Rent',icon:'invalid'})},a)).status,400);
+  assert.equal((await request('/api/transaction-types',{...customType,headers:{'Content-Type':'application/json',origin:'https://example.org'}},a)).status,403);
+  const profileUpdate={method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Updated name'})};
+  assert.equal((await request('/api/profile',profileUpdate)).status,401);
+  assert.equal((await request('/api/profile',profileUpdate,a)).status,200);
+  assert.equal((await (await request('/api/auth',{},a)).json()).user.name,'Updated name');
+  assert.equal((await (await request('/api/auth',{},b)).json()).user.name,'Test User');
+  assert.equal((await request('/api/profile',{...profileUpdate,body:JSON.stringify({name:''})},a)).status,400);
+  assert.deepEqual((await (await request('/api/entries',{},a)).json()).entries,[]);
+  const receipt=new Blob(['%PDF-1.4\nTest receipt'],{type:'application/pdf'});
+  const first=entry();first.set('receipt',receipt,'receipt.pdf');
+  assert.equal((await request('/api/entries',{method:'POST',body:first},a)).status,200);
+  let rows=(await (await request('/api/entries',{},a)).json()).entries;
+  assert.equal(rows.length,1);assert.equal(rows[0].amount,1800000);const id=rows[0].id;
+  assert.equal((await request('/api/entries',{method:'POST',body:entry({particular:'Monthly subscription',subscription:'Claude',type:'debit',amount:'1150.29'})},a)).status,200);
+  rows=(await (await request('/api/entries',{},a)).json()).entries;assert.equal(rows.length,2);assert.equal(rows.reduce((s,e)=>s+(e.type==='credit'?e.amount:-e.amount),0),1684971);
+  assert.deepEqual((await (await request('/api/entries',{},b)).json()).entries,[]);
+  assert.equal((await request('/api/receipts/'+id,{},b)).status,404);
+  assert.equal((await request('/api/receipts/'+id)).status,401);
+  const viewed=await request('/api/receipts/'+id,{},a);assert.equal(viewed.status,200);assert.equal(await viewed.text(),await receipt.text());assert.match(viewed.headers.get('content-disposition'),/^inline;/);
+  assert.equal((await request('/api/entries',{method:'POST',body:entry({id,amount:'1'})},b)).status,404);
+  await request('/api/entries?id='+id,{method:'DELETE'},b);
+  assert.equal((await request('/api/receipts/'+id,{},a)).status,200);
+  assert.equal((await request('/api/entries',{method:'POST',headers:{origin:'https://example.org'},body:entry()},a)).status,403);
+  for(const amount of ['0','-1','1.001'])assert.equal((await request('/api/entries',{method:'POST',body:entry({amount})},a)).status,400);
+  assert.equal((await request('/api/entries',{method:'POST',body:entry({date:'2026-02-31'})},a)).status,400);
+  const big=entry();big.set('receipt',new Blob([new Uint8Array(2*1024*1024+1)],{type:'image/png'}),'large.png');assert.equal((await request('/api/entries',{method:'POST',body:big},a)).status,400);
+  assert.equal((await request('/api/entries',{method:'POST',body:entry({id,amount:'19000',remove_receipt:'true'})},a)).status,200);
+  assert.equal((await request('/api/receipts/'+id,{},a)).status,404);
+  assert.equal((await request('/api/entries?id='+id,{method:'DELETE'},a)).status,200);
+  assert.equal((await request('/api/auth',{method:'DELETE'},a)).status,200);
+  assert.equal((await request('/api/entries',{},a)).status,401);
+  const login=await request('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'login',email:'a@example.test',password:'test-only-password-394!'})});assert.equal(login.status,200);
+  console.log('PASS: account creation, login/logout, ownership isolation, CRUD, exact amounts, date validation, inline receipt viewing/removal/limits, origin checks, manifest, and PNG icon.');
+} finally {server.kill('SIGTERM');}

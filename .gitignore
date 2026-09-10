@@ -1,0 +1,11 @@
+.vercel
+node_modules/
+.next/
+.env*
+!.env.example
+*.db*
+*.tsbuildinfo
+android/build-*/
+android/keys/
+artifacts/
+.env*

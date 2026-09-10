@@ -1,0 +1,13 @@
+.type-picker { width:100%; }
+.type-picker-trigger, .type-picker-options button { display:flex; align-items:center; gap:10px; width:100%; min-height:44px; padding:10px 12px; text-align:left; border:1px solid #dce3d9; border-radius:8px; background:white; color:#29483d; }
+.type-picker-trigger span,.type-picker-options button span {flex:1;}
+.type-picker-panel {border:1px solid #dce3d9;border-radius:10px;padding:8px;margin-top:6px;background:#fff;}
+.type-picker-options {max-height:210px;overflow:auto;margin-top:6px;}
+.type-picker-options button {border:0;}
+.type-picker-options button:hover,.type-picker-options button[aria-pressed=true] {background:#eef3e8;}
+.type-icon-picker {display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;}
+.type-icon-picker button {display:grid;place-items:center;width:40px;height:40px;border:1px solid #dce3d9;border-radius:8px;background:#fff;color:#385448;}
+.type-icon-picker button[aria-pressed=true] {background:#e5eedb;border-color:#759566;}
+.type-icon-picker button:focus-visible,.type-picker button:focus-visible {outline:2px solid #759566;outline-offset:2px;}
+.w-icon-edit {padding:12px 0;border-bottom:1px solid #dce3d9;}
+.w-type-symbol {border:0;cursor:pointer;}
