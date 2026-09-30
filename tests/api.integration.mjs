@@ -4,9 +4,13 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
+import { scryptSync } from 'node:crypto';
 
 const temporary = await mkdtemp(join(tmpdir(), 'pocketbook-test-'));
-const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3107'],{env:{...process.env,VERCEL:'',TURSO_DATABASE_URL:'file:'+join(temporary,'test.db'),TURSO_AUTH_TOKEN:'',DATABASE_AUTH_TOKEN:''},stdio:'pipe'});
+const adminAnswer='admin-only-test-secret';
+const adminSalt='0123456789abcdef0123456789abcdef';
+const adminHash=adminSalt+':'+scryptSync(adminAnswer,adminSalt,64).toString('hex');
+const server = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3107'],{env:{...process.env,VERCEL:'',TURSO_DATABASE_URL:'file:'+join(temporary,'test.db'),TURSO_AUTH_TOKEN:'',DATABASE_AUTH_TOKEN:'',ADMIN_RECOVERY_PASSWORD_HASH:adminHash},stdio:'pipe'});
 let output='';server.stderr.on('data',d=>output+=d);server.stdout.on('data',d=>output+=d);
 const base='http://localhost:3107';
 const request=(path,options={},cookie='')=>fetch(base+path,{...options,headers:{...options.headers,...(cookie?{cookie}:{})}});
@@ -21,6 +25,16 @@ try {
   const icon=await request('/icon/192');assert.equal(icon.status,200);assert.equal(icon.headers.get('content-type'),'image/png');
   assert.equal((await request('/api/entries')).status,401);
   const a=await signup('a@example.test');const b=await signup('b@example.test');
+  assert.equal((await request('/forgot-password')).status,200);
+  const recovery=(body,headers={})=>request('/api/password-reset',{method:'POST',headers:{'Content-Type':'application/json',...headers},body:JSON.stringify(body)});
+  assert.equal((await request('/api/password-reset?email=invalid')).status,400);
+  assert.equal((await (await request('/api/password-reset?email=a%40example.test')).json()).question,'What is the admin recovery password?');
+  assert.equal((await recovery({email:'invalid'})).status,400);
+  assert.equal((await recovery({email:'a@example.test',answer:adminAnswer,password:'a-long-enough-password'},{origin:'https://example.org'})).status,403);
+  assert.equal((await recovery({email:'a@example.test',answer:'incorrect',password:'a-long-enough-password'})).status,401);
+  const questionUpdate={method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({question:'What private phrase did you choose?',answer:'Private answer 123'})};
+  assert.equal((await request('/api/recovery-question',questionUpdate,b)).status,200);
+  assert.equal((await (await request('/api/password-reset?email=b%40example.test')).json()).question,'What private phrase did you choose?');
   assert.equal((await request('/api/transaction-types')).status,401);
   const customType={method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:'Rent'})};
   assert.equal((await request('/api/transaction-types',customType,a)).status,200);
@@ -62,5 +76,12 @@ try {
   assert.equal((await request('/api/auth',{method:'DELETE'},a)).status,200);
   assert.equal((await request('/api/entries',{},a)).status,401);
   const login=await request('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'login',email:'a@example.test',password:'test-only-password-394!'})});assert.equal(login.status,200);
-  console.log('PASS: account creation, login/logout, ownership isolation, CRUD, exact amounts, date validation, inline receipt viewing/removal/limits, origin checks, manifest, and PNG icon.');
+  const signedIn=login.headers.get('set-cookie').split(';')[0];
+  assert.equal((await recovery({email:'a@example.test',answer:adminAnswer.toUpperCase(),password:'replacement-password-394!'})).status,200);
+  assert.equal((await request('/api/entries',{},signedIn)).status,401);
+  assert.equal((await request('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'login',email:'a@example.test',password:'test-only-password-394!'})})).status,401);
+  assert.equal((await request('/api/auth',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode:'login',email:'a@example.test',password:'replacement-password-394!'})})).status,200);
+  assert.equal((await recovery({email:'b@example.test',answer:adminAnswer,password:'replacement-password-394!'})).status,401);
+  assert.equal((await recovery({email:'b@example.test',answer:' private ANSWER 123 ',password:'replacement-password-394!'})).status,200);
+  console.log('PASS: account creation, login/logout, password reset and session revocation, ownership isolation, CRUD, exact amounts, date validation, inline receipt viewing/removal/limits, origin checks, manifest, and PNG icon.');
 } finally {server.kill('SIGTERM');}

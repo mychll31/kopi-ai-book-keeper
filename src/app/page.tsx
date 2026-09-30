@@ -649,6 +649,11 @@ export default function Home() {
                   <ArrowRight size={17} />
                 </button>
               </form>
+              {authMode === "login" && (
+                <a className="text-button auth-switch" href="/forgot-password">
+                  Forgot password?
+                </a>
+              )}
               <button
                 className="text-button auth-switch"
                 onClick={() => {

@@ -16,6 +16,6 @@ export default function LoginScreen({onSubmit,onSignup,busy,loading,error}:{onSu
       {error && <p className="error" role="alert">{error}</p>}
       <button className="primary" disabled={busy}>{busy ? "Signing in…" : "Sign in"}<ArrowRight size={18}/></button>
     </form>}
-    {!loading && <button type="button" className="text-button login-signup" disabled={busy} onClick={onSignup}>New to Kopi? Create an account</button>}
+    {!loading && <><a className="text-button login-signup" href="/forgot-password">Forgot password?</a><button type="button" className="text-button login-signup" disabled={busy} onClick={onSignup}>New to Kopi? Create an account</button></>}
   </section></main>;
 }

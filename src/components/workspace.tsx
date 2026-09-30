@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import KopiLogo from "./kopi-logo";
 import IntegrationSettings from "./integration-settings";
+import RecoverySettings from "./recovery-settings";
 import BudgetSpaces from "./budget-spaces";
 import type { BudgetSpace } from "@/lib/budget-spaces";
 import { IconPicker, TypeIcon } from "./type-picker";
@@ -611,6 +612,7 @@ export default function Workspace(p: Props) {
                 Create your account <ArrowRight size={17} />
               </button>
             )}
+            {p.account && <RecoverySettings userId={p.account.id} />}
             <IntegrationSettings demo={p.demo} />
             <dl className="w-profile-info">
               <div>

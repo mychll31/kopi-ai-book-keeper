@@ -24,6 +24,8 @@ export async function db() {
         "CREATE TABLE IF NOT EXISTS transaction_types (user_id TEXT NOT NULL, name TEXT NOT NULL COLLATE NOCASE, PRIMARY KEY(user_id, name))",
         "CREATE TABLE IF NOT EXISTS transaction_type_icons (user_id TEXT NOT NULL, name TEXT NOT NULL COLLATE NOCASE, icon TEXT NOT NULL, PRIMARY KEY(user_id, name))",
         "CREATE TABLE IF NOT EXISTS login_attempts (email TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at INTEGER NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS recovery_questions (user_id TEXT PRIMARY KEY, question TEXT NOT NULL, answer_hash TEXT NOT NULL)",
+        "CREATE TABLE IF NOT EXISTS recovery_attempts (email TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at INTEGER NOT NULL)",
         "CREATE TABLE IF NOT EXISTS integrations (user_id TEXT PRIMARY KEY, grok_key TEXT, model TEXT NOT NULL DEFAULT 'grok-4.6', bot_token TEXT, bot_id TEXT UNIQUE, bot_username TEXT, webhook_hash TEXT, enabled INTEGER NOT NULL DEFAULT 0, chat_id TEXT, link_hash TEXT, link_expires INTEGER)",
         "CREATE TABLE IF NOT EXISTS groq_settings (user_id TEXT PRIMARY KEY, api_key TEXT NOT NULL, model TEXT NOT NULL)",
         "CREATE TABLE IF NOT EXISTS telegram_imports (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, bot_id TEXT NOT NULL, message_id INTEGER NOT NULL, status TEXT NOT NULL, updated INTEGER NOT NULL, created INTEGER NOT NULL, attempts INTEGER NOT NULL DEFAULT 1, notified INTEGER NOT NULL DEFAULT 0, draft TEXT, receipt BLOB, receipt_type TEXT, UNIQUE(user_id,bot_id,message_id))",
