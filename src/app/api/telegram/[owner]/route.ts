@@ -38,15 +38,48 @@ export async function POST(
   const callback = update.callback_query;
   const chat = message?.chat || callback?.message?.chat;
   const sender = message?.from || callback?.from;
+  const group = chat?.type === "group" || chat?.type === "supergroup";
   if (
-    chat?.type !== "private" ||
+    !chat ||
     sender?.is_bot ||
-    String(chat.id) !== String(sender?.id)
+    (chat.type === "private" ? String(chat.id) !== String(sender?.id) : !group)
   )
     return ok();
   const chatId = String(chat.id);
+  // In groups the bot only acts when tagged (@bot in the text/caption) or replied to.
+  const botName = "@" + String(settings.bot_username || "").toLowerCase();
+  const mentions = (text: string, entities: unknown) =>
+    Array.isArray(entities) &&
+    entities.some(
+      (e) =>
+        (e?.type === "mention" &&
+          text.slice(e.offset, e.offset + e.length).toLowerCase() ===
+            botName) ||
+        (e?.type === "text_mention" &&
+          String(e.user?.id) === String(settings.bot_id)),
+    );
+  const tagged =
+    !group ||
+    !!callback ||
+    (!!message &&
+      (mentions(message.caption || "", message.caption_entities) ||
+        mentions(message.text || "", message.entities) ||
+        String(message.reply_to_message?.from?.id) ===
+          String(settings.bot_id)));
   const say = (text: string, extra: object = {}) =>
-    telegram(token, "sendMessage", { chat_id: chatId, text, ...extra });
+    telegram(token, "sendMessage", {
+      chat_id: chatId,
+      text,
+      ...(group && message
+        ? {
+            reply_parameters: {
+              message_id: message.message_id,
+              allow_sending_without_reply: true,
+            },
+          }
+        : {}),
+      ...extra,
+    });
   async function notifyJob(id: string) {
     const row = (
       await database.execute({
@@ -96,7 +129,7 @@ export async function POST(
       args: [id],
     });
   }
-  if (message?.text?.startsWith("/start ")) {
+  if (!group && message?.text?.startsWith("/start ")) {
     const code = message.text.slice(7).trim();
     const linked = await database.execute({
       sql: "UPDATE integrations SET chat_id=?,link_hash=NULL,link_expires=NULL WHERE user_id=? AND link_hash=? AND link_expires>? AND enabled=1",
@@ -109,7 +142,8 @@ export async function POST(
     );
     return ok();
   }
-  if (String(settings.chat_id) !== chatId) return ok();
+  // Only the linked Kopi user may use the bot, whether in private chat or a group.
+  if (String(settings.chat_id) !== String(sender?.id) || !tagged) return ok();
   if (callback) {
     const match = /^(credit|debit|cancel):([a-f0-9-]{36})$/.exec(
       callback.data || "",
@@ -184,17 +218,37 @@ export async function POST(
     });
     return ok();
   }
-  const file = message?.photo?.at(-1) || message?.document;
+  // In a group, tagging the bot in a reply to a photo reads that photo.
+  const source =
+    message?.photo || message?.document
+      ? message
+      : group &&
+          (message?.reply_to_message?.photo ||
+            message?.reply_to_message?.document)
+        ? message.reply_to_message
+        : message;
+  const file = source?.photo?.at(-1) || source?.document;
+  const caption = [
+    message?.caption || message?.text,
+    source !== message && source?.caption,
+  ]
+    .filter((c): c is string => typeof c === "string")
+    .join("\n")
+    .replace(
+      new RegExp(botName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"),
+      "",
+    )
+    .trim();
+  // Telegram message ids are per chat, so group imports are keyed by the
+  // bot-wide update_id (negated so it never collides with private message ids).
+  const messageKey = group ? -Number(update.update_id) : message?.message_id;
   if (!file) {
     await say(
       "Send a JPG, PNG, or WebP receipt image, up to 2 MB. Include a caption such as ‘I received this payment’ when direction is not obvious.",
     );
     return ok();
   }
-  if (
-    !Number.isSafeInteger(message.message_id) ||
-    typeof file.file_id !== "string"
-  )
+  if (!Number.isSafeInteger(messageKey) || typeof file.file_id !== "string")
     return ok();
   if (!settings.groq_key) {
     await say(
@@ -214,7 +268,7 @@ export async function POST(
   let job = (
     await database.execute({
       sql: "SELECT * FROM telegram_imports WHERE user_id=? AND bot_id=? AND message_id=?",
-      args: [owner, String(settings.bot_id), message.message_id],
+      args: [owner, String(settings.bot_id), messageKey],
     })
   ).rows[0];
   if (job && job.status !== "processing") {
@@ -257,7 +311,7 @@ export async function POST(
     }
     const claim = await database.execute({
       sql: "INSERT OR IGNORE INTO telegram_imports (id,user_id,bot_id,message_id,status,updated,created) VALUES (?,?,?,?,'processing',?,?)",
-      args: [id, owner, String(settings.bot_id), message.message_id, now, now],
+      args: [id, owner, String(settings.bot_id), messageKey, now, now],
     });
     if (!claim.rowsAffected) return new Response(null, { status: 503 });
   }
@@ -299,7 +353,7 @@ export async function POST(
       bytes,
       mime,
       types,
-      message.caption || "",
+      caption,
     );
     // Recheck authorization after the external AI request in case the user disconnected.
     const current = (
@@ -310,7 +364,7 @@ export async function POST(
     ).rows[0];
     if (
       !current?.enabled ||
-      String(current.chat_id) !== chatId ||
+      String(current.chat_id) !== String(sender.id) ||
       current.bot_id !== settings.bot_id ||
       !current.groq_key
     )
