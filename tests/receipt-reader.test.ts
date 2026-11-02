@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseReceipt } from '../src/lib/receipt-reader.ts';
+import { parseReceipt, describe } from '../src/lib/receipt-reader.ts';
 const receipt = {is_receipt:true,details_clear:true,currency:'PHP',date:'2026-09-10',amount:'12.34',description:'Lunch',category:'Food',direction:'debit',direction_clear:true};
 test('receipt validation rejects guessed totals, invalid dates and currency', () => {
   for(const change of [{is_receipt:false},{details_clear:false},{currency:'USD'},{date:'2026-02-30'},{amount:'0'},{amount:'12.345'},{amount:12.34},{description:''},{payment_status:'pending'},{payment_status:'failed'},{amount:'4,22.00'}]) assert.throws(()=>parseReceipt({...receipt,...change},['Food']));
@@ -20,4 +20,12 @@ test('uncertain direction stays pending; unknown category is uncategorized', () 
   assert.equal(parseReceipt({...receipt,direction:'unknown'},['Food']).type,null);
   assert.equal(parseReceipt({...receipt,category:'Invented'},['Food']).subscription,'');
   assert.equal(parseReceipt(receipt,['Food']).amount,1234);
+});
+test('description is merchant dash Telegram caption', () => {
+  assert.equal(describe('LIVEKIT.IO', 'Receipt  LiveKit payment 2'), 'LIVEKIT.IO - LiveKit payment 2');
+  assert.equal(describe('LIVEKIT.IO', 'receipt: LiveKit\npayment 2'), 'LIVEKIT.IO - LiveKit payment 2');
+  assert.equal(describe('LIVEKIT.IO', 'Receipt'), 'LIVEKIT.IO');
+  assert.equal(describe('LIVEKIT.IO', ''), 'LIVEKIT.IO');
+  assert.equal(describe('Grab', 'grab'), 'Grab');
+  assert.equal(describe('Grab', 'Receipts are fun'), 'Grab - Receipts are fun');
 });
