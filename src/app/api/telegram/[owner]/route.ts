@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { digest } from "@/lib/auth";
 import { decrypt } from "@/lib/integration-secrets";
 import { telegram, imageBytes } from "@/lib/telegram";
-import { readReceipt, type ReceiptDraft } from "@/lib/receipt-reader";
+import { readReceipt, describe, type ReceiptDraft } from "@/lib/receipt-reader";
 import { DEFAULT_TYPES } from "@/lib/transaction-types";
 import { importSpace } from "@/lib/budget-spaces";
 export const maxDuration = 120;
@@ -355,6 +355,7 @@ export async function POST(
       types,
       caption,
     );
+    draft.particular = describe(draft.particular, caption);
     // Recheck authorization after the external AI request in case the user disconnected.
     const current = (
       await database.execute({

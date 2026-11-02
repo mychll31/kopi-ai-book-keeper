@@ -57,6 +57,18 @@ export function parseReceipt(value: unknown, types: string[]): ReceiptDraft {
     confident: !!type && !conflict && (!!evidenceType || r.direction_clear === true),
   };
 }
+// Builds "<merchant> - <caption>" from the OCR'd merchant and the user's
+// Telegram caption, dropping the "Receipt" keyword the caption may start with.
+export function describe(merchant: string, caption: string) {
+  const note = caption
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/^receipt\b[\s:,.-]*/i, "")
+    .trim();
+  const name = merchant.trim();
+  if (!note || note.toLowerCase() === name.toLowerCase()) return name;
+  return (name ? name + " - " + note : note).slice(0, 200);
+}
 export async function readReceipt(
   key: string,
   model: string,
