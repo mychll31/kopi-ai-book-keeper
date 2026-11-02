@@ -10,6 +10,5 @@ android/keys/
 artifacts/
 .env*
 .vercelignore
-vercel.json
 AGENTS.md
 CLAUDE.md
