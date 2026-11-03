@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cents, totals, csv, flowByType, monthBalance, type Entry } from "../src/lib/ledger.ts";
+import { cents, totals, csv, flowByType, monthBalance, spaceCarryover, type Entry } from "../src/lib/ledger.ts";
 test("money conversion is exact and rejects invalid amounts", () => {
   assert.equal(cents("18000.00"), 1800000);
   assert.equal(cents("0.29"), 29);
@@ -89,4 +89,31 @@ test("month balance carries over what was left from earlier months", () => {
     monthBalance([{ ...base, date: "2026-10-01", type: "debit", amount: 100 }], "2026-11").carryover,
     -100,
   );
+});
+test("a Budget Space carries over what was left in earlier spaces", () => {
+  const base = { id: "a", particular: "x", subscription: "", receipt_name: null };
+  const spaces = [
+    { id: "p", name: "Personal" },
+    { id: "oct", name: "October" },
+    { id: "nov", name: "November Expense" },
+  ];
+  const rows: Entry[] = [
+    { ...base, space_id: "oct", date: "2026-10-01", type: "credit", amount: 10700000 },
+    { ...base, space_id: "oct", date: "2026-10-20", type: "debit", amount: 8217133 },
+    { ...base, space_id: "nov", date: "2026-11-02", type: "debit", amount: 6271745 },
+  ];
+  assert.deepEqual(spaceCarryover(spaces, rows, "p"), { amount: 0, from: null });
+  const carried = spaceCarryover(spaces, rows, "nov");
+  assert.deepEqual(carried, { amount: 2482867, from: "October" });
+  const nov = monthBalance(
+    rows.filter((e) => e.space_id === "nov"),
+    "2026-11",
+    carried.amount,
+  );
+  assert.deepEqual(nov, {
+    carryover: 2482867,
+    credit: 0,
+    debit: 6271745,
+    ending: 2482867 - 6271745,
+  });
 });
