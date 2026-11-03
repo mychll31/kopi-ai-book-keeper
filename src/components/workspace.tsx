@@ -22,7 +22,14 @@ import RecoverySettings from "./recovery-settings";
 import BudgetSpaces from "./budget-spaces";
 import type { BudgetSpace } from "@/lib/budget-spaces";
 import { IconPicker, TypeIcon } from "./type-picker";
-import { csv, flowByType, monthBalance, totals, type Entry } from "@/lib/ledger";
+import {
+  csv,
+  flowByType,
+  monthBalance,
+  spaceCarryover,
+  totals,
+  type Entry,
+} from "@/lib/ledger";
 import "./workspace.css";
 
 type Account = { id: string; name: string; email: string };
@@ -65,11 +72,15 @@ function MonthCard({
   title,
   from,
   balance,
+  carried,
 }: {
   title: string;
   from: string;
   balance: { carryover: number; credit: number; debit: number; ending: number };
+  carried: { amount: number; from: string | null };
 }) {
+  // balance.carryover includes what came in from the previous Budget Space.
+  const withinSpace = balance.carryover - carried.amount;
   return (
     <section className="w-month" aria-label={title}>
       <div className="w-section-heading">
@@ -77,12 +88,22 @@ function MonthCard({
         <span>Carryover + in − out</span>
       </div>
       <dl>
-        <div>
-          <dt>Carryover from {from}</dt>
-          <dd className={balance.carryover < 0 ? "debit" : ""}>
-            {money(balance.carryover)}
-          </dd>
-        </div>
+        {carried.from && (
+          <div>
+            <dt>Carried over from {carried.from}</dt>
+            <dd className={carried.amount < 0 ? "debit" : ""}>
+              {money(carried.amount)}
+            </dd>
+          </div>
+        )}
+        {(!carried.from || withinSpace !== 0) && (
+          <div>
+            <dt>Carryover from {from}</dt>
+            <dd className={withinSpace < 0 ? "debit" : ""}>
+              {money(withinSpace)}
+            </dd>
+          </div>
+        )}
         <div>
           <dt>Money in</dt>
           <dd className="credit">+{money(balance.credit)}</dd>
@@ -211,9 +232,12 @@ export default function Workspace(p: Props) {
     );
   };
   const thisMonthKey = chart[5].key;
-  const thisMonth = monthBalance(scopedEntries, thisMonthKey);
+  const carried = spaceCarryover(p.spaces, p.entries, selectedSpace);
+  const thisMonth = monthBalance(scopedEntries, thisMonthKey, carried.amount);
   const selectedMonth =
-    month === "all" ? null : monthBalance(scopedEntries, month);
+    month === "all"
+      ? null
+      : monthBalance(scopedEntries, month, carried.amount);
   const max = Math.max(100, ...chart.flatMap((c) => [c.credit, c.debit]));
   const chartTotals = chart.reduce(
     (s, c) => ({ credit: s.credit + c.credit, debit: s.debit + c.debit }),
@@ -324,11 +348,13 @@ export default function Workspace(p: Props) {
               <span>
                 <Wallet size={18} /> Available balance
               </span>
-              <strong>{money(summary.balance)}</strong>
+              <strong>{money(carried.amount + summary.balance)}</strong>
               <small>
                 {viewedSpace
                   ? `${viewedSpace.name}${viewedSpace.active ? " · active" : ""} Budget Space · all time`
                   : "No Budget Space selected"}
+                {carried.from &&
+                  ` · includes ${money(carried.amount)} carried over from ${carried.from}`}
               </small>
             </section>
             <div className="w-totals">
@@ -349,6 +375,7 @@ export default function Workspace(p: Props) {
               title={`This month · ${monthName(thisMonthKey)}`}
               from={prevMonth(thisMonthKey)}
               balance={thisMonth}
+              carried={carried}
             />
             <section className="w-chart">
               <div className="w-section-heading">
@@ -467,14 +494,14 @@ export default function Workspace(p: Props) {
                     {flowTypeKey === "all" && (
                       <span>
                         Carryover{" "}
-                        {money(monthBalance(scopedEntries, c.key).carryover)}
+                        {money(monthBalance(scopedEntries, c.key, carried.amount).carryover)}
                       </span>
                     )}
                     <span>Credit {money(c.credit)}</span>
                     <span>Debit {money(c.debit)}</span>
                     {flowTypeKey === "all" && (
                       <span>
-                        Ending {money(monthBalance(scopedEntries, c.key).ending)}
+                        Ending {money(monthBalance(scopedEntries, c.key, carried.amount).ending)}
                       </span>
                     )}
                   </div>
@@ -512,6 +539,7 @@ export default function Workspace(p: Props) {
                 title={monthName(month)}
                 from={prevMonth(month)}
                 balance={selectedMonth}
+                carried={carried}
               />
             )}
             <section className="w-transactions">
