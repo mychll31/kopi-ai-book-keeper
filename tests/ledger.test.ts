@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { cents, totals, csv, flowByType, type Entry } from "../src/lib/ledger.ts";
+import { cents, totals, csv, flowByType, monthBalance, type Entry } from "../src/lib/ledger.ts";
 test("money conversion is exact and rejects invalid amounts", () => {
   assert.equal(cents("18000.00"), 1800000);
   assert.equal(cents("0.29"), 29);
@@ -62,4 +62,31 @@ test("cash flow groups by transaction type, case-insensitively", () => {
     { name: "Uncategorized", credit: 0, debit: 1000, net: -1000 },
   ]);
   assert.deepEqual(flowByType([]), []);
+});
+test("month balance carries over what was left from earlier months", () => {
+  const base = { id: "a", particular: "x", subscription: "", receipt_name: null };
+  const rows: Entry[] = [
+    { ...base, date: "2026-09-01", type: "credit", amount: 2000000 },
+    { ...base, date: "2026-09-20", type: "debit", amount: 500000 },
+    { ...base, date: "2026-10-15", type: "debit", amount: 300000 },
+    { ...base, date: "2026-11-01", type: "credit", amount: 100000 },
+    { ...base, date: "2026-11-02", type: "debit", amount: 50000 },
+  ];
+  assert.deepEqual(monthBalance(rows, "2026-11"), {
+    carryover: 1200000,
+    credit: 100000,
+    debit: 50000,
+    ending: 1250000,
+  });
+  assert.deepEqual(monthBalance(rows, "2026-09"), {
+    carryover: 0,
+    credit: 2000000,
+    debit: 500000,
+    ending: 1500000,
+  });
+  // Negative carryover (overspent) carries over too.
+  assert.equal(
+    monthBalance([{ ...base, date: "2026-10-01", type: "debit", amount: 100 }], "2026-11").carryover,
+    -100,
+  );
 });

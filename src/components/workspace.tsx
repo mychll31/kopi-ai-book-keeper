@@ -22,7 +22,7 @@ import RecoverySettings from "./recovery-settings";
 import BudgetSpaces from "./budget-spaces";
 import type { BudgetSpace } from "@/lib/budget-spaces";
 import { IconPicker, TypeIcon } from "./type-picker";
-import { csv, flowByType, totals, type Entry } from "@/lib/ledger";
+import { csv, flowByType, monthBalance, totals, type Entry } from "@/lib/ledger";
 import "./workspace.css";
 
 type Account = { id: string; name: string; email: string };
@@ -60,6 +60,47 @@ const menus = [
   { name: "Transaction types", icon: Tags },
   { name: "Profile", icon: UserRound },
 ];
+
+function MonthCard({
+  title,
+  from,
+  balance,
+}: {
+  title: string;
+  from: string;
+  balance: { carryover: number; credit: number; debit: number; ending: number };
+}) {
+  return (
+    <section className="w-month" aria-label={title}>
+      <div className="w-section-heading">
+        <h2>{title}</h2>
+        <span>Carryover + in − out</span>
+      </div>
+      <dl>
+        <div>
+          <dt>Carryover from {from}</dt>
+          <dd className={balance.carryover < 0 ? "debit" : ""}>
+            {money(balance.carryover)}
+          </dd>
+        </div>
+        <div>
+          <dt>Money in</dt>
+          <dd className="credit">+{money(balance.credit)}</dd>
+        </div>
+        <div>
+          <dt>Money out</dt>
+          <dd className="debit">−{money(balance.debit)}</dd>
+        </div>
+        <div className="w-month-ending">
+          <dt>Ending balance</dt>
+          <dd className={balance.ending < 0 ? "debit" : ""}>
+            {money(balance.ending)}
+          </dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
 
 export default function Workspace(p: Props) {
   const [chosenSpace, setChosenSpace] = useState("");
@@ -157,6 +198,22 @@ export default function Workspace(p: Props) {
       ...totals(flowEntries.filter((e) => e.date.startsWith(key))),
     };
   });
+  const monthName = (key: string) =>
+    new Date(key + "-01T12:00:00").toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    });
+  const prevMonth = (key: string) => {
+    const d = new Date(key + "-01T12:00:00");
+    d.setMonth(d.getMonth() - 1);
+    return monthName(
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+    );
+  };
+  const thisMonthKey = chart[5].key;
+  const thisMonth = monthBalance(scopedEntries, thisMonthKey);
+  const selectedMonth =
+    month === "all" ? null : monthBalance(scopedEntries, month);
   const max = Math.max(100, ...chart.flatMap((c) => [c.credit, c.debit]));
   const chartTotals = chart.reduce(
     (s, c) => ({ credit: s.credit + c.credit, debit: s.debit + c.debit }),
@@ -288,6 +345,11 @@ export default function Workspace(p: Props) {
                 <strong>{money(summary.debit)}</strong>
               </div>
             </div>
+            <MonthCard
+              title={`This month · ${monthName(thisMonthKey)}`}
+              from={prevMonth(thisMonthKey)}
+              balance={thisMonth}
+            />
             <section className="w-chart">
               <div className="w-section-heading">
                 <h2>Cash flow</h2>
@@ -402,8 +464,19 @@ export default function Workspace(p: Props) {
                     <span>
                       {c.label} {c.key.slice(0, 4)}
                     </span>
+                    {flowTypeKey === "all" && (
+                      <span>
+                        Carryover{" "}
+                        {money(monthBalance(scopedEntries, c.key).carryover)}
+                      </span>
+                    )}
                     <span>Credit {money(c.credit)}</span>
                     <span>Debit {money(c.debit)}</span>
+                    {flowTypeKey === "all" && (
+                      <span>
+                        Ending {money(monthBalance(scopedEntries, c.key).ending)}
+                      </span>
+                    )}
                   </div>
                 ))}
               </details>
@@ -434,6 +507,13 @@ export default function Workspace(p: Props) {
                 <Plus size={18} /> Add debit
               </button>
             </div>
+            {selectedMonth && (
+              <MonthCard
+                title={monthName(month)}
+                from={prevMonth(month)}
+                balance={selectedMonth}
+              />
+            )}
             <section className="w-transactions">
               <div className="w-filters">
                 <div className="tabs">

@@ -233,6 +233,12 @@
   padding: 10px 0;
   border-top: 1px solid #eef1e9;
   font-size: 10px;
+  flex-wrap: wrap;
+}
+.w-chart-details > div > span:first-child {
+  flex-basis: 100%;
+  font-weight: 600;
+  color: #5f6f57;
 }
 .w-flow-type {
   display: flex;
@@ -315,6 +321,45 @@
 .w-type-flow small {
   font-size: 10px;
   color: #8b977e;
+}
+.w-month {
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  background: #fff;
+  border: 1px solid #e6ece2;
+  border-radius: 12px;
+}
+.w-month dl {
+  margin: 12px 0 0;
+}
+.w-month dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  color: #6b7b70;
+}
+.w-month dd {
+  margin: 0;
+  color: #29483d;
+  white-space: nowrap;
+}
+.w-month dd.credit {
+  color: #4f7343;
+}
+.w-month dd.debit {
+  color: #a8724a;
+}
+.w-month .w-month-ending {
+  border-top: 1px solid #eef1e9;
+  margin-top: 4px;
+  padding-top: 12px;
+  font-weight: 600;
+  color: #29483d;
+}
+.w-month .w-month-ending dd {
+  font-size: 15px;
 }
 .w-forward {
   width: 100%;

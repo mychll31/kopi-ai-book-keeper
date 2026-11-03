@@ -68,3 +68,19 @@ export function flowByType(entries: Entry[]): TypeFlow[] {
       b.credit + b.debit - (a.credit + a.debit) || a.name.localeCompare(b.name),
   );
 }
+export type MonthBalance = {
+  carryover: number;
+  credit: number;
+  debit: number;
+  ending: number;
+};
+// Opening balance for a month ("YYYY-MM") is everything left over from
+// earlier months; ending balance adds that month's credits minus debits.
+export function monthBalance(entries: Entry[], month: string): MonthBalance {
+  const carryover = totals(entries.filter((e) => e.date.slice(0, 7) < month))
+    .balance;
+  const { credit, debit } = totals(
+    entries.filter((e) => e.date.startsWith(month)),
+  );
+  return { carryover, credit, debit, ending: carryover + credit - debit };
+}
