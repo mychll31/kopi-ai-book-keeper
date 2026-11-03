@@ -104,7 +104,7 @@
 }
 .w-totals {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   padding: 23px 0 25px;
   gap: 20px;
 }
@@ -126,6 +126,26 @@
   font-weight: 550;
   margin-top: 9px;
   overflow-wrap: anywhere;
+}
+.w-totals small {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: #96a088;
+}
+@media (max-width: 640px) {
+  .w-totals {
+    grid-template-columns: 1fr 1fr;
+  }
+  .w-totals > .w-opening {
+    grid-column: 1 / -1;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #dfe7dc;
+  }
+  .w-totals > .w-opening + div {
+    border-left: 0;
+    padding-left: 0;
+  }
 }
 .w-chart {
   padding: 24px;
