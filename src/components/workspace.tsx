@@ -135,7 +135,7 @@ export default function Workspace(p: Props) {
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
     [month, setMonth] = useState("all"),
-    [flowType, setFlowType] = useState("all");
+    [flowPeriod, setFlowPeriod] = useState("6");
   const [typeName, setTypeName] = useState(""),
     [name, setName] = useState(p.account?.name || ""),
     [busy, setBusy] = useState(false),
@@ -192,31 +192,37 @@ export default function Workspace(p: Props) {
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) +
       "T12:00:00",
   );
-  const firstMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-  const windowStart = `${firstMonth.getFullYear()}-${String(firstMonth.getMonth() + 1).padStart(2, "0")}`;
-  // Cash flow is built from each transaction's type (Salary, Food, ...).
+  const monthKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const periods: Record<string, { label: string; months: number }> = {
+    "1": { label: "This month", months: 1 },
+    "3": { label: "Last 3 months", months: 3 },
+    "6": { label: "Last 6 months", months: 6 },
+    all: { label: "All time", months: 0 },
+  };
+  const period = periods[flowPeriod] || periods["6"];
+  const periodStart = period.months
+    ? monthKey(new Date(now.getFullYear(), now.getMonth() - period.months + 1, 1))
+    : "";
+  // Cash flow is grouped by each transaction's type (Salary, Food, ...).
   const typeFlows = flowByType(
-    scopedEntries.filter((e) => e.date.slice(0, 7) >= windowStart),
+    scopedEntries.filter((e) => e.date.slice(0, 7) >= periodStart),
   );
-  const flowTypeKey = typeFlows.some((t) => t.name.toLowerCase() === flowType)
-    ? flowType
-    : "all";
-  const flowEntries =
-    flowTypeKey === "all"
-      ? scopedEntries
-      : scopedEntries.filter(
-          (e) =>
-            (e.subscription.trim() || "Uncategorized").toLowerCase() ===
-            flowTypeKey,
-        );
-  const typeMax = Math.max(1, ...typeFlows.map((t) => Math.max(t.credit, t.debit)));
+  const typeMax = Math.max(
+    100,
+    ...typeFlows.map((t) => Math.max(t.credit, t.debit)),
+  );
+  const flowTotals = typeFlows.reduce(
+    (s, t) => ({ credit: s.credit + t.credit, debit: s.debit + t.debit }),
+    { credit: 0, debit: 0 },
+  );
   const chart = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     return {
       label: d.toLocaleDateString("en-US", { month: "short" }),
       key,
-      ...totals(flowEntries.filter((e) => e.date.startsWith(key))),
+      ...totals(scopedEntries.filter((e) => e.date.startsWith(key))),
     };
   });
   const monthName = (key: string) =>
@@ -238,11 +244,6 @@ export default function Workspace(p: Props) {
     month === "all"
       ? null
       : monthBalance(scopedEntries, month, carried.amount);
-  const max = Math.max(100, ...chart.flatMap((c) => [c.credit, c.debit]));
-  const chartTotals = chart.reduce(
-    (s, c) => ({ credit: s.credit + c.credit, debit: s.debit + c.debit }),
-    { credit: 0, debit: 0 },
-  );
   function navigate(next: string) {
     setView(next);
     setError("");
@@ -391,19 +392,18 @@ export default function Workspace(p: Props) {
             <section className="w-chart">
               <div className="w-section-heading">
                 <h2>Cash flow</h2>
-                <span>Last 6 months</span>
+                <span>By transaction type</span>
               </div>
               <label className="w-flow-type">
-                <span>Transaction type</span>
+                <span>Period</span>
                 <select
-                  value={flowTypeKey}
-                  onChange={(e) => setFlowType(e.target.value)}
-                  aria-label="Cash flow transaction type"
+                  value={flowPeriod}
+                  onChange={(e) => setFlowPeriod(e.target.value)}
+                  aria-label="Cash flow period"
                 >
-                  <option value="all">All types</option>
-                  {typeFlows.map((t) => (
-                    <option key={t.name} value={t.name.toLowerCase()}>
-                      {t.name}
+                  {Object.entries(periods).map(([id, { label }]) => (
+                    <option key={id} value={id}>
+                      {label}
                     </option>
                   ))}
                 </select>
@@ -419,49 +419,40 @@ export default function Workspace(p: Props) {
                 </span>
               </div>
               <div
-                className="w-chart-area"
+                className="w-chart-area w-chart-by-type"
                 role="img"
-                aria-label={`Monthly credit and debit${flowTypeKey === "all" ? "" : ` for ${typeFlows.find((t) => t.name.toLowerCase() === flowTypeKey)?.name}`}, ${chart[0].label} to ${chart[5].label}. Credit ${money(chartTotals.credit)}. Debit ${money(chartTotals.debit)}.`}
+                aria-label={`Credit and debit by transaction type, ${period.label.toLowerCase()}. Credit ${money(flowTotals.credit)}. Debit ${money(flowTotals.debit)}.`}
               >
-                {chart.map((c) => (
-                  <div key={c.key} className="w-chart-column">
+                {typeFlows.map((t) => (
+                  <div key={t.name} className="w-chart-column">
                     <div className="w-bars">
                       <div
                         className="w-credit-bar"
-                        style={{ height: `${(c.credit / max) * 100}%` }}
-                        title={`${c.label} credit: ${money(c.credit)}`}
+                        style={{ height: `${(t.credit / typeMax) * 100}%` }}
+                        title={`${t.name} credit: ${money(t.credit)}`}
                       />
                       <div
                         className="w-debit-bar"
-                        style={{ height: `${(c.debit / max) * 100}%` }}
-                        title={`${c.label} debit: ${money(c.debit)}`}
+                        style={{ height: `${(t.debit / typeMax) * 100}%` }}
+                        title={`${t.name} debit: ${money(t.debit)}`}
                       />
                     </div>
-                    <span>{c.label}</span>
+                    <span title={t.name}>{t.name}</span>
                   </div>
                 ))}
               </div>
-              {chartTotals.credit + chartTotals.debit === 0 && (
+              {typeFlows.length === 0 && (
                 <p className="w-chart-empty">
                   No transactions in this period yet.
                 </p>
               )}
               {typeFlows.length > 0 && (
                 <div className="w-type-flow">
-                  <h3>By transaction type</h3>
+                  <h3>Amounts by transaction type</h3>
                   <ul>
                     {typeFlows.map((t) => (
                       <li key={t.name}>
-                        <button
-                          aria-pressed={flowTypeKey === t.name.toLowerCase()}
-                          onClick={() =>
-                            setFlowType(
-                              flowTypeKey === t.name.toLowerCase()
-                                ? "all"
-                                : t.name.toLowerCase(),
-                            )
-                          }
-                        >
+                        <div className="w-type-flow-row">
                           <span className="w-type-flow-name">
                             <TypeIcon icon={p.iconFor(t.name)} />
                             <strong>{t.name}</strong>
@@ -470,26 +461,12 @@ export default function Workspace(p: Props) {
                               {money(Math.abs(t.net))}
                             </em>
                           </span>
-                          {t.credit > 0 && (
-                            <span
-                              className="w-type-flow-bar w-credit-bar"
-                              style={{ width: `${(t.credit / typeMax) * 100}%` }}
-                              title={`${t.name} credit: ${money(t.credit)}`}
-                            />
-                          )}
-                          {t.debit > 0 && (
-                            <span
-                              className="w-type-flow-bar w-debit-bar"
-                              style={{ width: `${(t.debit / typeMax) * 100}%` }}
-                              title={`${t.name} debit: ${money(t.debit)}`}
-                            />
-                          )}
                           <small>
                             {t.credit > 0 && <>In {money(t.credit)}</>}
                             {t.credit > 0 && t.debit > 0 && " · "}
                             {t.debit > 0 && <>Out {money(t.debit)}</>}
                           </small>
-                        </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -502,19 +479,15 @@ export default function Workspace(p: Props) {
                     <span>
                       {c.label} {c.key.slice(0, 4)}
                     </span>
-                    {flowTypeKey === "all" && (
-                      <span>
-                        Carryover{" "}
-                        {money(monthBalance(scopedEntries, c.key, carried.amount).carryover)}
-                      </span>
-                    )}
+                    <span>
+                      Carryover{" "}
+                      {money(monthBalance(scopedEntries, c.key, carried.amount).carryover)}
+                    </span>
                     <span>Credit {money(c.credit)}</span>
                     <span>Debit {money(c.debit)}</span>
-                    {flowTypeKey === "all" && (
-                      <span>
-                        Ending {money(monthBalance(scopedEntries, c.key, carried.amount).ending)}
-                      </span>
-                    )}
+                    <span>
+                      Ending {money(monthBalance(scopedEntries, c.key, carried.amount).ending)}
+                    </span>
                   </div>
                 ))}
               </details>
