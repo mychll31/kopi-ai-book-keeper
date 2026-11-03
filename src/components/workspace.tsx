@@ -358,6 +358,17 @@ export default function Workspace(p: Props) {
               </small>
             </section>
             <div className="w-totals">
+              <div className="w-opening">
+                <span>
+                  <Wallet size={16} /> Opening balance
+                </span>
+                <strong>{money(carried.amount)}</strong>
+                <small>
+                  {carried.from
+                    ? `Carried over from ${carried.from}`
+                    : "First Budget Space"}
+                </small>
+              </div>
               <div>
                 <span>
                   <ArrowDownLeft size={16} /> Total credit
