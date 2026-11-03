@@ -234,6 +234,88 @@
   border-top: 1px solid #eef1e9;
   font-size: 10px;
 }
+.w-flow-type {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 11px;
+  color: #7f8d74;
+}
+.w-flow-type select {
+  min-width: 0;
+  max-width: 60%;
+  padding: 8px 10px;
+  border: 1px solid #dce3d9;
+  border-radius: 8px;
+  background: #fff;
+  color: #29483d;
+  font-size: 12px;
+}
+.w-type-flow {
+  margin-top: 24px;
+  border-top: 1px solid #eef1e9;
+  padding-top: 18px;
+}
+.w-type-flow h3 {
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.w-type-flow ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.w-type-flow button {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  width: 100%;
+  padding: 10px 8px;
+  border-radius: 8px;
+  text-align: left;
+}
+.w-type-flow button[aria-pressed="true"] {
+  background: #f3f6ef;
+}
+.w-type-flow-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+.w-type-flow-name strong {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 550;
+}
+.w-type-flow-name em {
+  font-style: normal;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.w-type-flow-name em.credit {
+  color: #4f7343;
+}
+.w-type-flow-name em.debit {
+  color: #a8724a;
+}
+.w-type-flow-bar {
+  display: block;
+  height: 6px;
+  min-width: 3px;
+  border-radius: 3px;
+}
+.w-type-flow small {
+  font-size: 10px;
+  color: #8b977e;
+}
 .w-forward {
   width: 100%;
   justify-content: space-between;

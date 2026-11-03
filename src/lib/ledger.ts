@@ -44,3 +44,27 @@ export function csv(entries: Entry[]) {
     ),
   ].join("\r\n");
 }
+export type TypeFlow = {
+  name: string;
+  credit: number;
+  debit: number;
+  net: number;
+};
+// Cash flow grouped by transaction type (Salary, Food, ...). Names match
+// case-insensitively; untyped entries are grouped under "Uncategorized".
+export function flowByType(entries: Entry[]): TypeFlow[] {
+  const groups = new Map<string, TypeFlow>();
+  for (const e of entries) {
+    const name = e.subscription.trim() || "Uncategorized";
+    const key = name.toLowerCase();
+    const g = groups.get(key) || { name, credit: 0, debit: 0, net: 0 };
+    if (e.type === "credit") g.credit += e.amount;
+    else g.debit += e.amount;
+    g.net = g.credit - g.debit;
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort(
+    (a, b) =>
+      b.credit + b.debit - (a.credit + a.debit) || a.name.localeCompare(b.name),
+  );
+}

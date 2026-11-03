@@ -22,7 +22,7 @@ import RecoverySettings from "./recovery-settings";
 import BudgetSpaces from "./budget-spaces";
 import type { BudgetSpace } from "@/lib/budget-spaces";
 import { IconPicker, TypeIcon } from "./type-picker";
-import { csv, totals, type Entry } from "@/lib/ledger";
+import { csv, flowByType, totals, type Entry } from "@/lib/ledger";
 import "./workspace.css";
 
 type Account = { id: string; name: string; email: string };
@@ -68,13 +68,12 @@ export default function Workspace(p: Props) {
     ? chosenSpace
     : activeSpace?.id || p.spaces[0]?.id || "";
   const scopedEntries = p.entries.filter((e) => e.space_id === selectedSpace);
-  const activeEntries = activeSpace
-    ? p.entries.filter((e) => e.space_id === activeSpace.id)
-    : [];
+  const viewedSpace = p.spaces.find((s) => s.id === selectedSpace);
   const [view, setView] = useState("Overview"),
     [search, setSearch] = useState(""),
     [filter, setFilter] = useState("all"),
-    [month, setMonth] = useState("all");
+    [month, setMonth] = useState("all"),
+    [flowType, setFlowType] = useState("all");
   const [typeName, setTypeName] = useState(""),
     [name, setName] = useState(p.account?.name || ""),
     [busy, setBusy] = useState(false),
@@ -115,7 +114,7 @@ export default function Workspace(p: Props) {
       viewport?.removeEventListener("scroll", update);
     };
   }, []);
-  const summary = totals(activeEntries);
+  const summary = totals(scopedEntries);
   const rows = scopedEntries.filter(
     (e) =>
       (filter === "all" || e.type === filter) &&
@@ -131,13 +130,31 @@ export default function Workspace(p: Props) {
     new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" }) +
       "T12:00:00",
   );
+  const firstMonth = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+  const windowStart = `${firstMonth.getFullYear()}-${String(firstMonth.getMonth() + 1).padStart(2, "0")}`;
+  // Cash flow is built from each transaction's type (Salary, Food, ...).
+  const typeFlows = flowByType(
+    scopedEntries.filter((e) => e.date.slice(0, 7) >= windowStart),
+  );
+  const flowTypeKey = typeFlows.some((t) => t.name.toLowerCase() === flowType)
+    ? flowType
+    : "all";
+  const flowEntries =
+    flowTypeKey === "all"
+      ? scopedEntries
+      : scopedEntries.filter(
+          (e) =>
+            (e.subscription.trim() || "Uncategorized").toLowerCase() ===
+            flowTypeKey,
+        );
+  const typeMax = Math.max(1, ...typeFlows.map((t) => Math.max(t.credit, t.debit)));
   const chart = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
     return {
       label: d.toLocaleDateString("en-US", { month: "short" }),
       key,
-      ...totals(activeEntries.filter((e) => e.date.startsWith(key))),
+      ...totals(flowEntries.filter((e) => e.date.startsWith(key))),
     };
   });
   const max = Math.max(100, ...chart.flatMap((c) => [c.credit, c.debit]));
@@ -215,7 +232,7 @@ export default function Workspace(p: Props) {
         </button>
       </header>
       <main className="w-main">
-        {view === "Transactions" && (
+        {(view === "Transactions" || view === "Overview") && (
           <BudgetSpaces
             spaces={p.spaces}
             selected={selectedSpace}
@@ -252,21 +269,21 @@ export default function Workspace(p: Props) {
               </span>
               <strong>{money(summary.balance)}</strong>
               <small>
-                {activeSpace
-                  ? `${activeSpace.name} · active Budget Space · all time`
-                  : "No active Budget Space"}
+                {viewedSpace
+                  ? `${viewedSpace.name}${viewedSpace.active ? " · active" : ""} Budget Space · all time`
+                  : "No Budget Space selected"}
               </small>
             </section>
             <div className="w-totals">
               <div>
                 <span>
-                  <ArrowDownLeft size={16} /> Active total credit
+                  <ArrowDownLeft size={16} /> Total credit
                 </span>
                 <strong>{money(summary.credit)}</strong>
               </div>
               <div>
                 <span>
-                  <ArrowUpRight size={16} /> Active total debit
+                  <ArrowUpRight size={16} /> Total debit
                 </span>
                 <strong>{money(summary.debit)}</strong>
               </div>
@@ -276,6 +293,21 @@ export default function Workspace(p: Props) {
                 <h2>Cash flow</h2>
                 <span>Last 6 months</span>
               </div>
+              <label className="w-flow-type">
+                <span>Transaction type</span>
+                <select
+                  value={flowTypeKey}
+                  onChange={(e) => setFlowType(e.target.value)}
+                  aria-label="Cash flow transaction type"
+                >
+                  <option value="all">All types</option>
+                  {typeFlows.map((t) => (
+                    <option key={t.name} value={t.name.toLowerCase()}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="w-chart-legend">
                 <span>
                   <i />
@@ -289,7 +321,7 @@ export default function Workspace(p: Props) {
               <div
                 className="w-chart-area"
                 role="img"
-                aria-label={`Monthly credit and debit, ${chart[0].label} to ${chart[5].label}. Credit ${money(chartTotals.credit)}. Debit ${money(chartTotals.debit)}.`}
+                aria-label={`Monthly credit and debit${flowTypeKey === "all" ? "" : ` for ${typeFlows.find((t) => t.name.toLowerCase() === flowTypeKey)?.name}`}, ${chart[0].label} to ${chart[5].label}. Credit ${money(chartTotals.credit)}. Debit ${money(chartTotals.debit)}.`}
               >
                 {chart.map((c) => (
                   <div key={c.key} className="w-chart-column">
@@ -313,6 +345,55 @@ export default function Workspace(p: Props) {
                 <p className="w-chart-empty">
                   No transactions in this period yet.
                 </p>
+              )}
+              {typeFlows.length > 0 && (
+                <div className="w-type-flow">
+                  <h3>By transaction type</h3>
+                  <ul>
+                    {typeFlows.map((t) => (
+                      <li key={t.name}>
+                        <button
+                          aria-pressed={flowTypeKey === t.name.toLowerCase()}
+                          onClick={() =>
+                            setFlowType(
+                              flowTypeKey === t.name.toLowerCase()
+                                ? "all"
+                                : t.name.toLowerCase(),
+                            )
+                          }
+                        >
+                          <span className="w-type-flow-name">
+                            <TypeIcon icon={p.iconFor(t.name)} />
+                            <strong>{t.name}</strong>
+                            <em className={t.net < 0 ? "debit" : "credit"}>
+                              {t.net < 0 ? "−" : "+"}
+                              {money(Math.abs(t.net))}
+                            </em>
+                          </span>
+                          {t.credit > 0 && (
+                            <span
+                              className="w-type-flow-bar w-credit-bar"
+                              style={{ width: `${(t.credit / typeMax) * 100}%` }}
+                              title={`${t.name} credit: ${money(t.credit)}`}
+                            />
+                          )}
+                          {t.debit > 0 && (
+                            <span
+                              className="w-type-flow-bar w-debit-bar"
+                              style={{ width: `${(t.debit / typeMax) * 100}%` }}
+                              title={`${t.name} debit: ${money(t.debit)}`}
+                            />
+                          )}
+                          <small>
+                            {t.credit > 0 && <>In {money(t.credit)}</>}
+                            {t.credit > 0 && t.debit > 0 && " · "}
+                            {t.debit > 0 && <>Out {money(t.debit)}</>}
+                          </small>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
               <details className="w-chart-details">
                 <summary>View monthly amounts</summary>
