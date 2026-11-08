@@ -293,18 +293,25 @@
   padding: 0;
   margin: 0;
 }
-.w-type-flow button {
+.w-type-flow-row {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 5px;
-  width: 100%;
-  padding: 10px 8px;
-  border-radius: 8px;
-  text-align: left;
+  gap: 4px;
+  padding: 10px 0;
+  border-top: 1px solid #f2f4ef;
 }
-.w-type-flow button[aria-pressed="true"] {
-  background: #f3f6ef;
+.w-chart-by-type {
+  overflow-x: auto;
+  justify-content: flex-start;
+}
+.w-chart-by-type .w-chart-column {
+  flex: 1 0 64px;
+}
+.w-chart-by-type .w-chart-column > span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .w-type-flow-name {
   display: flex;
@@ -331,12 +338,6 @@
 }
 .w-type-flow-name em.debit {
   color: #a8724a;
-}
-.w-type-flow-bar {
-  display: block;
-  height: 6px;
-  min-width: 3px;
-  border-radius: 3px;
 }
 .w-type-flow small {
   font-size: 10px;
